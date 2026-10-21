@@ -5,10 +5,12 @@ import { dataFingerprint } from './engine/model.js';
 import Home from './ui/Home.jsx';
 import Overview from './ui/Overview.jsx';
 import DataScreen from './ui/DataScreen.jsx';
+import CheckScreen from './ui/CheckScreen.jsx';
 
 const SCREENS = [
   { key: 'overview', label: 'Overview' },
   { key: 'data', label: 'College data' },
+  { key: 'check', label: 'Check data' },
 ];
 
 export default function App() {
@@ -150,6 +152,7 @@ export default function App() {
             <Overview project={project} role={role} issues={issues} stale={stale} update={update} go={setScreen} goData={goData} />
           )}
           {screen === 'data' && <DataScreen project={project} role={role} update={update} tab={dataTab} setTab={setDataTab} notify={setToast} />}
+          {screen === 'check' && <CheckScreen project={project} role={role} issues={issues} goData={goData} go={setScreen} />}
         </main>
       </div>
       {fileInput}
