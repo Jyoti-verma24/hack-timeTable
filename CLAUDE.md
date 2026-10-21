@@ -64,7 +64,7 @@ teachers     [{ id, name, dept, maxPerWeek, maxPerDay, unavailable: [{day, perio
 sections     [{ id (name), dept, semester, students }]
 load         [{ id, section, subject, teacher, type: "theory"|"lab", hours, block, roomType }]
 status       { <dept id>: "draft" | "submitted" }
-timetable    { placements: [{ uid, loadId, day, start, len, room, locked? }], unplaced, ms, fingerprint, generatedAt, manualMoves } | null
+timetable    { placements: [{ uid, loadId, day, start, len, room, locked? }], unplaced, droppedLocks, ms, seed, fingerprint, generatedAt, manualMoves } | null
 ```
 
 - **Periods are 0-based in data, 1-based in anything a person reads or types** (UI, CSV, messages: "P3", "Fri 5-8").
@@ -84,7 +84,7 @@ timetable    { placements: [{ uid, loadId, day, start, len, room, locked? }], un
 
 Two-phase hybrid (classic university course timetabling):
 
-1. **Construct (Stage 1, `generate.js`):** split load rows into units (4 theory hours → four 1-period units; a 3-hour lab with block 3 → one 3-period unit). Repeatedly pick the unit with the fewest valid options (DSatur-style, longer blocks first), place it in its lowest-penalty slot. If none exists, evict the cheapest set of blocking units, place it, and re-queue the evicted ones (bounded by an eviction budget). Several seeded restarts; keep the result with the fewest unplaced, then the lowest soft cost. Deterministic for a given seed.
+1. **Construct (Stage 1, `generate.js`):** split load rows into units (4 theory hours → four 1-period units; a 3-hour lab with block 3 → one 3-period unit). Repeatedly pick the unit with the fewest valid options (DSatur-style, longer blocks first), place it in its lowest-penalty slot. If none exists, evict the cheapest set of blocking units, place it, and re-queue the evicted ones (bounded by an eviction budget). Several seeded restarts; keep the result with the fewest unplaced, then the lowest soft cost. Deterministic for a given seed. `generate(project, { locked })` puts locked placements down first and never evicts them; a lock that no longer fits the data is returned in `droppedLocks` with a plain reason and the class is placed normally.
 2. **Improve (Stage 2):** simulated annealing over move/swap, accepting only moves that keep 0 clashes. Supports locked placements and minimal-change re-solves.
 3. **CP-SAT "Best quality" mode (Stage 2):** a Python service (FastAPI + Google OR-Tools CP-SAT) models the same hard rules as constraints and soft rules as the objective. Its output goes through the **same** `check.js`. The browser hybrid stays the default and the fallback if the service is slow or down.
 

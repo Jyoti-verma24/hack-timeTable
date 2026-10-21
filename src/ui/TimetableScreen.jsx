@@ -97,16 +97,18 @@ export default function TimetableScreen({ project, role, errorCount, stale, upda
   }, [printAll]);
 
   const run = (seed) => {
-    if (lockedCount && !confirm(`Regenerate builds a completely new timetable. Your ${lockedCount} locked class(es) will be replaced too. Continue?`)) return;
     setBusy(true);
+    setSelected(null);
     // Let the button repaint before the solver blocks the main thread.
     setTimeout(() => {
-      const res = generate(project, { seed });
+      const locked = (tt?.placements || []).filter((p) => p.locked);
+      const res = generate(project, { seed, locked });
       update((p) => ({
         ...p,
         timetable: {
           placements: res.placements,
           unplaced: res.unplaced,
+          droppedLocks: res.droppedLocks,
           ms: res.ms,
           seed,
           fingerprint: dataFingerprint(p),
@@ -114,11 +116,11 @@ export default function TimetableScreen({ project, role, errorCount, stale, upda
         },
       }));
       setBusy(false);
-      notify(
-        res.unplaced.length
-          ? `Generated in ${(res.ms / 1000).toFixed(1)} s. ${res.unplaced.length} class(es) could not be placed; see why below.`
-          : `Generated in ${(res.ms / 1000).toFixed(1)} s. Every class placed.`,
-      );
+      const parts = [`Generated in ${(res.ms / 1000).toFixed(1)} s.`];
+      if (res.keptLocked) parts.push(`Kept ${res.keptLocked} locked class(es) in place.`);
+      if (res.droppedLocks.length) parts.push(`${res.droppedLocks.length} locked class(es) had to move; see why above the timetable.`);
+      parts.push(res.unplaced.length ? `${res.unplaced.length} class(es) could not be placed; see why below.` : 'Every class placed.');
+      notify(parts.join(' '));
     }, 30);
   };
 
@@ -134,11 +136,21 @@ export default function TimetableScreen({ project, role, errorCount, stale, upda
         </div>
         {isCoord && tt && (
           <div className="row">
-            <button className="btn" disabled={busy || errorCount > 0} onClick={() => run((tt.seed || 1) + 1)} title="Make a different valid version">
+            <button
+              className="btn"
+              disabled={busy || errorCount > 0}
+              onClick={() => run((tt.seed || 1) + 1)}
+              title={lockedCount ? 'A different valid version of everything that is not locked' : 'Make a different valid version'}
+            >
               Try another version
             </button>
-            <button className="btn primary big" disabled={busy || errorCount > 0} onClick={() => run(tt.seed || 1)}>
-              {busy ? <><span className="spinner" /> Generating…</> : 'Regenerate'}
+            <button
+              className="btn primary big"
+              disabled={busy || errorCount > 0}
+              onClick={() => run(tt.seed || 1)}
+              title={lockedCount ? 'Rebuild everything around the locked classes. Unlock everything to start completely fresh.' : 'Build the timetable again'}
+            >
+              {busy ? <><span className="spinner" /> Generating…</> : lockedCount ? `Regenerate (keeps ${lockedCount} locked)` : 'Regenerate'}
             </button>
           </div>
         )}
@@ -171,7 +183,16 @@ export default function TimetableScreen({ project, role, errorCount, stale, upda
             <span className="badge-big neutral">Student gaps: {quality.gaps}</span>
             <span className="badge-big neutral">Teacher runs over 3: {quality.longRuns}</span>
             <span className="badge-big neutral" title="Back-to-back classes where students must walk to another room">Room changes: {quality.roomChanges}</span>
-            {lockedCount > 0 && <span className="badge-big neutral" title="Locked classes stay where they are">🔒 {lockedCount} locked</span>}
+            {lockedCount > 0 && (
+              <span className="badge-big neutral" title="Locked classes stay where they are when you regenerate">
+                🔒 {lockedCount} locked
+                {isCoord && (
+                  <button className="btn ghost sm" style={{ marginLeft: 4 }} onClick={() => setLock(tt.placements.filter((p) => p.locked).map((p) => p.uid), false)}>
+                    Unlock everything
+                  </button>
+                )}
+              </span>
+            )}
             <span className="muted small">Generated in {(tt.ms / 1000).toFixed(1)} s · {new Date(tt.generatedAt).toLocaleString()}</span>
           </div>
 
@@ -184,6 +205,7 @@ export default function TimetableScreen({ project, role, errorCount, stale, upda
             </div>
           )}
 
+          {tt.droppedLocks?.length > 0 && <DroppedLocks project={project} dropped={tt.droppedLocks} />}
           {tt.unplaced.length > 0 && <Unplaced project={project} tt={tt} />}
 
           <div className="card card-pad screen-only-tt">
@@ -351,6 +373,23 @@ function Unplaced({ project, tt }) {
           {why.tips.map((t, i) => <div key={i} className="small" style={{ marginTop: 6 }}>💡 {t}</div>)}
         </div>
       ))}
+    </div>
+  );
+}
+
+// Locked classes the last regenerate couldn't keep because the data changed.
+function DroppedLocks({ project, dropped }) {
+  return (
+    <div className="banner warn no-print">
+      <div className="grow">
+        <b>{dropped.length} locked class(es) couldn't stay where they were</b>, so they were placed somewhere valid instead:
+        <ul style={{ margin: '4px 0 0' }}>
+          {dropped.map((d) => {
+            const row = project.load.find((l) => l.id === d.loadId);
+            return <li key={d.uid}>{row ? `${row.subject} (${row.section})` : 'A removed class'}: {d.reason}.</li>;
+          })}
+        </ul>
+      </div>
     </div>
   );
 }

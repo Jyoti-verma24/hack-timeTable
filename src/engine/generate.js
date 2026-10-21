@@ -3,15 +3,17 @@
 // valid slot, and when a unit has no valid slot it evicts the units blocking the
 // cheapest slot and re-queues them. Several seeded restarts; the best result wins.
 // Hard rules are never broken: a unit is either placed cleanly or reported unplaced.
+// `locked` placements are put down first and never moved or evicted; one that no
+// longer fits the data is dropped (with the reason) and placed like any other class.
 
 import { blockFits, expandUnits, eligibleRooms, makeRng } from './model.js';
 import { softCost } from './score.js';
 
-export function generate(project, { seed = 1, attempts = 6, timeBudgetMs = 3000 } = {}) {
+export function generate(project, { seed = 1, attempts = 6, timeBudgetMs = 3000, locked = [] } = {}) {
   const t0 = Date.now();
   let best = null;
   for (let a = 0; a < attempts; a++) {
-    const res = solveOnce(project, makeRng(seed + a * 7919));
+    const res = solveOnce(project, makeRng(seed + a * 7919), locked);
     if (!best || isBetter(res, best)) best = res;
     if (best.unplaced.length === 0 && a >= 2) break;
     if (Date.now() - t0 > timeBudgetMs) break;
@@ -25,7 +27,7 @@ function isBetter(a, b) {
   return a.cost < b.cost;
 }
 
-function solveOnce(project, rng) {
+function solveOnce(project, rng, locked) {
   const { settings } = project;
   const days = settings.days;
   const loadById = new Map(project.load.map((r) => [r.id, r]));
@@ -190,6 +192,7 @@ function solveOnce(project, rng) {
           if (c) victims.add(c);
         }
         if (victims.size === 0) continue;
+        if ([...victims].some((v) => lockedSet.has(v))) continue; // locked classes never move
         // The teacher's daily limit must still hold once the victims are gone.
         let freed = 0;
         for (const v of victims) {
@@ -205,7 +208,33 @@ function solveOnce(project, rng) {
     return best;
   };
 
-  const remaining = new Set(units.keys());
+  // Put locked classes down first, exactly where they were, if they still obey every rule.
+  const lockedSet = new Set();
+  const droppedLocks = [];
+  for (const lk of locked) {
+    const u = units.get(lk.uid);
+    let reason = null;
+    let room = null;
+    if (!u) reason = loadById.has(lk.loadId) ? 'it has no usable room, teacher or section now' : 'it is no longer in the teaching load';
+    else if (u.len !== lk.len) reason = 'its number of periods together changed';
+    else if (!days.includes(lk.day)) reason = `${lk.day} is no longer a working day`;
+    else if (!startsFor(u.len).some((s) => s.day === lk.day && s.start === lk.start)) reason = 'that time no longer fits (a break, short day or fixed slot is in the way)';
+    else if (!(room = u.rooms.find((r) => r.id === lk.room))) reason = `room ${lk.room} can no longer be used for it`;
+    else {
+      const periods = Array.from({ length: u.len }, (_, i) => lk.start + i);
+      if (periods.some((p) => unavailable.has(`${u.teacher.id}|${lk.day}|${p}`))) reason = `${u.teacher.name} is now unavailable then`;
+      else if (!fitsTeacher(u, lk.day, lk.start)) reason = 'another locked class already uses that teacher, section or day limit';
+      else if (!roomFree(room, lk.day, lk.start, u.len)) reason = `another locked class is already in ${room.id}`;
+    }
+    if (reason || lockedSet.has(lk.uid)) {
+      droppedLocks.push({ uid: lk.uid, loadId: lk.loadId, reason: reason || 'it was locked twice' });
+      continue;
+    }
+    place(u, lk.day, lk.start, room);
+    lockedSet.add(u.uid);
+  }
+
+  const remaining = new Set([...units.keys()].filter((uid) => !lockedSet.has(uid)));
   const evictCount = new Map();
   let evictionsLeft = Math.max(200, units.size * 15);
 
@@ -258,6 +287,7 @@ function solveOnce(project, rng) {
     start: p.start,
     len: units.get(uid).len,
     room: p.room,
+    ...(lockedSet.has(uid) ? { locked: true } : {}),
   }));
-  return { placements, unplaced, cost: softCost(project, placements).total };
+  return { placements, unplaced, cost: softCost(project, placements).total, keptLocked: lockedSet.size, droppedLocks };
 }
