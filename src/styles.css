@@ -242,6 +242,20 @@ table.tt td.drop-ok { background: var(--ok-bg) !important; box-shadow: 0 0 0 2px
 table.tt td.drop-ok:hover { background: #c9ead8 !important; }
 table.tt td.drop-no { box-shadow: 0 0 0 2px #f2c2c2 inset; cursor: not-allowed; opacity: 0.75; }
 
+/* Daily: substitutes */
+.absent-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 1px solid var(--line); }
+.cover-row { display: grid; grid-template-columns: 210px 1fr; gap: 16px; padding: 12px 20px; border-bottom: 1px solid var(--line); }
+.cover-row:last-child { border-bottom: 0; }
+.cover-choices { display: grid; gap: 6px; align-content: start; }
+.cover-option { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; }
+.cover-option.over { background: var(--warn-bg); border-color: #f1d9a6; }
+.cover-notes { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 3px; }
+.cover-done { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; background: var(--ok-bg); color: #0f4d30; }
+.print-notice { display: none; }
+table.notice { border-collapse: collapse; width: 100%; font-size: 12px; }
+table.notice th, table.notice td { border: 1px solid #999; padding: 6px 8px; text-align: left; }
+@media (max-width: 700px) { .cover-row { grid-template-columns: 1fr; } }
+
 .legend { display: flex; gap: 16px; flex-wrap: wrap; color: var(--muted); font-size: 12px; margin-top: 10px; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
 .legend i { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
@@ -303,6 +317,7 @@ table.tt td.drop-no { box-shadow: 0 0 0 2px #f2c2c2 inset; cursor: not-allowed; 
   .print-page:last-child { break-after: auto; }
   body.printing-all .screen-only-tt { display: none !important; }
   body.printing-all .print-only { display: block; }
+  .print-notice { display: block; }
   table.tt { min-width: 0; }
   table.tt td { height: 62px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .card { box-shadow: none; border: 0; }

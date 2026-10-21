@@ -24,6 +24,7 @@ export function emptyProject() {
     load: [],
     status: {},
     timetable: null,
+    absences: [],
   };
 }
 
@@ -46,6 +47,7 @@ export function normalizeProject(raw) {
   }
   p.teachers = p.teachers.map((t) => ({ ...t, unavailable: Array.isArray(t.unavailable) ? t.unavailable : [] }));
   p.status = p.status || {};
+  p.absences = Array.isArray(p.absences) ? p.absences : [];
   return p;
 }
 

@@ -41,6 +41,7 @@ src/
     validate.js        data checks before generating -> [{ level, area, dept, message }]
     explain.js         "why couldn't this fit?" for an unplaced unit
     score.js           soft-quality cost: student gaps, same-subject repeats, long teacher runs
+    daily.js           substitute finder: weekdayOf(date), coverOptions (free teachers per absent teacher's class, best match first)
     moves.js           moving a placed class by hand: moveOptions (green slot + room, or the reasons it can't go), applyMove (moved classes get locked), setLocked
   io/
     csv.js             CSV parse/write + TABLES spec (one column list drives templates, import, export and editable tables)
@@ -66,6 +67,7 @@ teachers     [{ id, name, dept, maxPerWeek, maxPerDay, unavailable: [{day, perio
 sections     [{ id (name), dept, semester, students }]
 load         [{ id, section, subject, teacher, type: "theory"|"lab", hours, block, roomType }]
 status       { <dept id>: "draft" | "submitted" }
+absences     [{ date: "2026-10-22", teacher, cover: { <placement uid>: <substitute teacher id> | null } }]
 timetable    { placements: [{ uid, loadId, day, start, len, room, locked? }], unplaced, droppedLocks, ms, seed, fingerprint, generatedAt, manualMoves } | null
 ```
 

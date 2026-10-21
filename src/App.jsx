@@ -8,12 +8,14 @@ import Overview from './ui/Overview.jsx';
 import DataScreen from './ui/DataScreen.jsx';
 import CheckScreen from './ui/CheckScreen.jsx';
 import TimetableScreen from './ui/TimetableScreen.jsx';
+import DailyScreen from './ui/DailyScreen.jsx';
 
 const SCREENS = [
   { key: 'overview', label: 'Overview' },
   { key: 'data', label: 'College data' },
   { key: 'check', label: 'Check data' },
   { key: 'timetable', label: 'Timetable' },
+  { key: 'daily', label: 'Daily: substitutes' },
 ];
 
 export default function App() {
@@ -204,6 +206,7 @@ export default function App() {
           {screen === 'timetable' && (
             <TimetableScreen project={project} role={role} errorCount={errorCount} stale={stale} update={update} go={setScreen} notify={setToast} />
           )}
+          {screen === 'daily' && <DailyScreen project={project} role={role} update={update} go={setScreen} stale={stale} />}
         </main>
       </div>
       {fileInput}
