@@ -189,8 +189,18 @@ export default function CollegeSettings({ project, role, update }) {
       <div className="card card-pad stack" style={{ marginTop: 16 }}>
         <div>
           <h3>College-wide fixed slots</h3>
-          <p className="muted small">Periods no class may use, for everyone: assembly, mentoring hour, sports, library.</p>
+          <p className="muted small">
+            A fixed slot keeps a period free of classes for the <b>whole college</b>, for things everyone attends: assembly,
+            mentoring hour, sports, library. The timetable never puts a class there, and it shows as a{' '}
+            <span className="fixed-swatch">purple box</span> in every timetable.
+          </p>
         </div>
+        {!(s.fixedSlots || []).length && (
+          <div className="empty-hint">
+            No fixed slots yet. Click <b>+ Add fixed slot</b>, then choose the day, the period and a name, for example{' '}
+            <i>Mon · P1 · Assembly</i>. Skip this if your college has none.
+          </div>
+        )}
         {(s.fixedSlots || []).map((f, i) => (
           <div key={i} className="row">
             <select value={f.day} onChange={(e) => set({ fixedSlots: s.fixedSlots.map((x, j) => (j === i ? { ...x, day: e.target.value } : x)) })}>
