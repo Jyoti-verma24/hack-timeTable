@@ -261,3 +261,20 @@ table.tt td.class { border-left: 4px solid; }
 @media (prefers-reduced-motion: reduce) {
   .spinner { animation: none; }
 }
+
+/* ---------- Print: just the timetable, one per A4 landscape page ---------- */
+@media print {
+  @page { size: A4 landscape; margin: 10mm; }
+  :root, body { background: #fff; }
+  .topbar, .sidebar, .no-print { display: none !important; }
+  .shell { display: block; }
+  .main { padding: 0; }
+  .print-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .print-page { break-after: page; }
+  .print-page:last-child { break-after: auto; }
+  body.printing-all .screen-only-tt { display: none !important; }
+  body.printing-all .print-only { display: block; }
+  table.tt { min-width: 0; }
+  table.tt td { height: 62px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .card { box-shadow: none; border: 0; }
+}

@@ -19,6 +19,7 @@ export default function TimetableScreen({ project, role, errorCount, stale, upda
   const [dept, setDept] = useState(isCoord ? 'all' : role);
   const [entity, setEntity] = useState('');
   const [busy, setBusy] = useState(false);
+  const [printAll, setPrintAll] = useState(false);
 
   const entities = useMemo(() => {
     const inDept = (d) => dept === 'all' || d === dept;
@@ -34,6 +35,14 @@ export default function TimetableScreen({ project, role, errorCount, stale, upda
   const quality = useMemo(() => (tt ? softCost(project, tt.placements) : null), [project, tt]);
   const totalHours = project.load.reduce((a, l) => a + (Number(l.hours) || 0), 0);
   const placedHours = tt ? tt.placements.reduce((a, p) => a + p.len, 0) : 0;
+
+  useEffect(() => {
+    if (!printAll) return;
+    document.body.classList.add('printing-all');
+    window.print();
+    document.body.classList.remove('printing-all');
+    setPrintAll(false);
+  }, [printAll]);
 
   const run = (seed) => {
     setBusy(true);
@@ -140,9 +149,14 @@ export default function TimetableScreen({ project, role, errorCount, stale, upda
               </select>
               <button className="btn sm" disabled={idx < 0 || idx >= entities.length - 1} onClick={() => setEntity(entities[idx + 1].id)} aria-label="Next">›</button>
               <span className="spacer" />
+              <button className="btn sm" onClick={() => window.print()} disabled={!current}>Print this</button>
+              <button className="btn sm" onClick={() => setPrintAll(true)} disabled={!entities.length}>
+                Print all {entities.length} {viewInfo.plural}
+              </button>
             </div>
             {current ? (
               <>
+                <PrintHead project={project} view={viewInfo.label} label={entityLabel} />
                 <div className="tt-title no-print">
                   <h3>{entityLabel}</h3>
                   <span className="muted small">{subtitle(project, view, current)}</span>
@@ -153,6 +167,16 @@ export default function TimetableScreen({ project, role, errorCount, stale, upda
             ) : (
               <div className="empty-state">Nothing to show for this department.</div>
             )}
+          </div>
+
+          <div className="print-only">
+            {printAll &&
+              entities.map((e) => (
+                <div key={e.id} className="print-page">
+                  <PrintHead project={project} view={viewInfo.label} label={e.label} />
+                  <Grid project={project} placements={tt.placements} view={view} id={e.id} />
+                </div>
+              ))}
           </div>
         </>
       )}
@@ -182,6 +206,15 @@ function subtitle(project, view, id) {
   }
   const r = project.rooms.find((x) => x.id === id);
   return r ? `${r.type} · ${r.capacity} seats · ${r.dept === 'shared' ? 'shared by all departments' : `belongs to ${r.dept}`}` : '';
+}
+
+function PrintHead({ project, view, label }) {
+  return (
+    <div className="print-head">
+      <h2>{view}: {label}</h2>
+      <span className="muted">{project.settings.name}</span>
+    </div>
+  );
 }
 
 function Legend() {
