@@ -180,6 +180,7 @@ table.data .readonly-cell { padding: 6px 7px; display: block; }
   background: var(--primary-soft); border-radius: 8px; max-width: 760px;
 }
 table.data.timings tr.break-row td { background: var(--lunch); }
+table.data.timings td .readonly-cell { white-space: nowrap; }
 table.data.timings tr.break-row td input:not([type='checkbox']) { font-weight: 600; }
 
 .form-grid { display: grid; grid-template-columns: 180px 1fr; gap: 14px 18px; align-items: center; }
