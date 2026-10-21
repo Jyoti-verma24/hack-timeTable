@@ -4,6 +4,7 @@ import { checkTimetable } from '../engine/check.js';
 import { explainUnplaced } from '../engine/explain.js';
 import { softCost } from '../engine/score.js';
 import { dataFingerprint } from '../engine/model.js';
+import { moveOptions, applyMove } from '../engine/moves.js';
 import Grid from './Grid.jsx';
 
 const VIEWS = [
@@ -20,6 +21,9 @@ export default function TimetableScreen({ project, role, errorCount, stale, upda
   const [entity, setEntity] = useState('');
   const [busy, setBusy] = useState(false);
   const [printAll, setPrintAll] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [hover, setHover] = useState(null);
 
   const entities = useMemo(() => {
     const inDept = (d) => dept === 'all' || d === dept;
@@ -35,6 +39,43 @@ export default function TimetableScreen({ project, role, errorCount, stale, upda
   const quality = useMemo(() => (tt ? softCost(project, tt.placements) : null), [project, tt]);
   const totalHours = project.load.reduce((a, l) => a + (Number(l.hours) || 0), 0);
   const placedHours = tt ? tt.placements.reduce((a, p) => a + p.len, 0) : 0;
+
+  const options = useMemo(
+    () => (tt && selected ? moveOptions(project, tt.placements, selected) : new Map()),
+    [project, tt, selected],
+  );
+  const selectedInfo = useMemo(() => {
+    const pl = tt?.placements.find((p) => p.uid === selected);
+    const row = pl && project.load.find((l) => l.id === pl.loadId);
+    if (!row) return null;
+    const free = [...options.values()].filter((o) => o.ok).length;
+    return { pl, row, free };
+  }, [tt, selected, options, project]);
+
+  useEffect(() => {
+    if (!editing) return undefined;
+    const onKey = (e) => e.key === 'Escape' && setSelected(null);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [editing]);
+
+  // HODs may move only their own department's classes; the coordinator may move any.
+  const canMove = (pl, row) => isCoord || project.sections.find((s) => s.id === row.section)?.dept === role;
+
+  const moveTo = (day, start) => {
+    const opt = options.get(`${day}|${start}`);
+    if (!opt?.ok || !selectedInfo) return;
+    const moved = applyMove(tt.placements, selected, day, start, opt.room);
+    const { clashes } = checkTimetable(project, moved);
+    if (clashes.length) {
+      notify(`Not moved: ${clashes[0].message}`);
+      return;
+    }
+    update((p) => ({ ...p, timetable: { ...p.timetable, placements: moved, manualMoves: (p.timetable.manualMoves || 0) + 1 } }));
+    notify(`Moved ${selectedInfo.row.subject} (${selectedInfo.row.section}) to ${day} P${start + 1}, room ${opt.room}. Still 0 clashes.`);
+    setSelected(null);
+    setHover(null);
+  };
 
   useEffect(() => {
     if (!printAll) return;
@@ -149,6 +190,14 @@ export default function TimetableScreen({ project, role, errorCount, stale, upda
               </select>
               <button className="btn sm" disabled={idx < 0 || idx >= entities.length - 1} onClick={() => setEntity(entities[idx + 1].id)} aria-label="Next">›</button>
               <span className="spacer" />
+              <button
+                className={`btn sm ${editing ? 'primary' : ''}`}
+                disabled={stale}
+                title={stale ? 'Regenerate first: the data changed after this timetable was made' : 'Move classes by hand'}
+                onClick={() => { setEditing(!editing); setSelected(null); setHover(null); }}
+              >
+                {editing ? '✓ Done moving' : '✋ Move classes'}
+              </button>
               <button className="btn sm" onClick={() => window.print()} disabled={!current}>Print this</button>
               <button className="btn sm" onClick={() => setPrintAll(true)} disabled={!entities.length}>
                 Print all {entities.length} {viewInfo.plural}
@@ -161,7 +210,28 @@ export default function TimetableScreen({ project, role, errorCount, stale, upda
                   <h3>{entityLabel}</h3>
                   <span className="muted small">{subtitle(project, view, current)}</span>
                 </div>
-                <Grid project={project} placements={tt.placements} view={view} id={current} />
+                {editing && (
+                  <div className="edit-bar no-print" role="status">
+                    {selectedInfo ? (
+                      <>
+                        <b>Moving {selectedInfo.row.subject}</b> ({selectedInfo.row.section}, {selectedInfo.pl.len} period{selectedInfo.pl.len > 1 ? 's' : ''}).{' '}
+                        {selectedInfo.free
+                          ? `Click or drop on a green slot (${selectedInfo.free} free). Red slots show why on hover. Esc to cancel.`
+                          : 'There is no free slot for it this week. Move another class first.'}
+                        <div className="edit-hover">{hover || ' '}</div>
+                      </>
+                    ) : (
+                      <>Click a class (or drag it) to see where it can go.{!isCoord && ' You can move your own department\'s classes.'}</>
+                    )}
+                  </div>
+                )}
+                <Grid
+                  project={project}
+                  placements={tt.placements}
+                  view={view}
+                  id={current}
+                  edit={editing ? { selected, options, canMove, onSelect: setSelected, onMove: moveTo, onHover: setHover } : undefined}
+                />
                 <Legend />
               </>
             ) : (

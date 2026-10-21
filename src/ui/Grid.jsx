@@ -16,7 +16,9 @@ export function subjectColour(subject) {
   return PALETTE[h % PALETTE.length];
 }
 
-export default function Grid({ project, placements, view, id }) {
+// `edit` (optional) turns on moving by hand:
+// { selected, options, canMove(pl, row), onSelect(uid), onMove(day, start), onHover(text | null) }
+export default function Grid({ project, placements, view, id, edit }) {
   const { settings } = project;
   const P = settings.periods.length;
   const breaks = breaksOf(settings);
@@ -37,6 +39,26 @@ export default function Grid({ project, placements, view, id }) {
   }
   const fixed = new Map((settings.fixedSlots || []).map((f) => [`${f.day}|${f.period}`, f.label]));
   const unavailable = new Set((teacher?.unavailable || []).map((u) => `${u.day}|${u.period}`));
+
+  // While a class is selected, every cell where a move could start becomes a target:
+  // green when the move is allowed, red with the reasons when it isn't.
+  const target = (key) => {
+    if (!edit?.selected) return {};
+    const opt = edit.options.get(key);
+    if (!opt) return {};
+    const [day, start] = key.split('|');
+    const where = `${day} P${Number(start) + 1}`;
+    const text = opt.ok ? `${where}: move here (room ${opt.room})` : `${where}: can't move here: ${opt.reasons.join('; ')}`;
+    return {
+      className: opt.ok ? ' drop-ok' : ' drop-no',
+      title: text,
+      onMouseEnter: () => edit.onHover(text),
+      onMouseLeave: () => edit.onHover(null),
+      onDragOver: opt.ok ? (e) => e.preventDefault() : undefined,
+      onDrop: opt.ok ? (e) => { e.preventDefault(); edit.onMove(day, Number(start)); } : undefined,
+      onClick: opt.ok ? () => edit.onMove(day, Number(start)) : undefined,
+    };
+  };
 
   const header = [];
   settings.periods.forEach((p, i) => {
@@ -90,8 +112,25 @@ export default function Grid({ project, placements, view, id }) {
                       : [hit.row.section, t?.name || hit.row.teacher];
                 let span = hit.pl.len;
                 for (let q = p + 1; q < p + hit.pl.len; q++) span += breakAt(q).length;
+                const movable = edit && edit.canMove(hit.pl, hit.row);
+                const isSelected = edit?.selected === hit.pl.uid;
+                const tgt = isSelected ? {} : target(key);
                 cells.push(
-                  <td key={p} colSpan={span} className="class" style={{ background: bg, borderLeftColor: accent }}>
+                  <td
+                    key={p}
+                    colSpan={span}
+                    className={`class${movable ? ' movable' : ''}${isSelected ? ' selected' : ''}${tgt.className || ''}`}
+                    style={{ background: bg, borderLeftColor: accent }}
+                    title={tgt.title || (movable ? 'Click or drag to move this class' : undefined)}
+                    draggable={movable || undefined}
+                    onDragStart={movable ? (e) => { e.dataTransfer.effectAllowed = 'move'; edit.onSelect(hit.pl.uid, true); } : undefined}
+                    onDragOver={tgt.onDragOver}
+                    onDrop={tgt.onDrop}
+                    onMouseEnter={tgt.onMouseEnter}
+                    onMouseLeave={tgt.onMouseLeave}
+                    // A green target moves the selected class here; otherwise clicking picks this class.
+                    onClick={tgt.onClick || (movable ? () => edit.onSelect(isSelected ? null : hit.pl.uid) : undefined)}
+                  >
                     <div className="cell-subject">
                       {hit.row.subject}
                       {hit.row.type === 'lab' && <span className="cell-lab">LAB</span>}
@@ -101,12 +140,11 @@ export default function Grid({ project, placements, view, id }) {
                     ))}
                   </td>,
                 );
-              } else if (fixed.has(key)) {
-                cells.push(<td key={p} className="fixed">{fixed.get(key)}</td>);
-              } else if (unavailable.has(key)) {
-                cells.push(<td key={p} className="unavail">Unavailable</td>);
               } else {
-                cells.push(<td key={p} className="empty" />);
+                const { className = '', ...handlers } = target(key);
+                if (fixed.has(key)) cells.push(<td key={p} className={`fixed${className}`} {...handlers}>{fixed.get(key)}</td>);
+                else if (unavailable.has(key)) cells.push(<td key={p} className={`unavail${className}`} {...handlers}>Unavailable</td>);
+                else cells.push(<td key={p} className={`empty${className}`} {...handlers} />);
               }
             }
             return (

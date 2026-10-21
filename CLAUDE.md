@@ -41,6 +41,7 @@ src/
     validate.js        data checks before generating -> [{ level, area, dept, message }]
     explain.js         "why couldn't this fit?" for an unplaced unit
     score.js           soft-quality cost: student gaps, same-subject repeats, long teacher runs
+    moves.js           moving a placed class by hand: moveOptions (green slot + room, or the reasons it can't go) and applyMove
   io/
     csv.js             CSV parse/write + TABLES spec (one column list drives templates, import, export and editable tables)
     project.js         empty/normalize/save/load project, rowDept/canEdit permissions, renameRefs
@@ -63,7 +64,7 @@ teachers     [{ id, name, dept, maxPerWeek, maxPerDay, unavailable: [{day, perio
 sections     [{ id (name), dept, semester, students }]
 load         [{ id, section, subject, teacher, type: "theory"|"lab", hours, block, roomType }]
 status       { <dept id>: "draft" | "submitted" }
-timetable    { placements: [{ uid, loadId, day, start, len, room }], unplaced, ms, fingerprint, generatedAt } | null
+timetable    { placements: [{ uid, loadId, day, start, len, room }], unplaced, ms, fingerprint, generatedAt, manualMoves } | null
 ```
 
 - **Periods are 0-based in data, 1-based in anything a person reads or types** (UI, CSV, messages: "P3", "Fri 5-8").
