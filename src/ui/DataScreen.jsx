@@ -85,7 +85,7 @@ function TableTab({ table, project, role, update, notify }) {
       }
       if (key === 'id') next = renameRefs(next, table, old.id, value);
       return next;
-    });
+    }, `Edited ${spec.label.toLowerCase()}`);
 
   const onDelete = (index) => {
     const row = project[table][index];
@@ -93,11 +93,11 @@ function TableTab({ table, project, role, update, notify }) {
       (table === 'teachers' && project.load.some((l) => l.teacher === row.id)) ||
       (table === 'sections' && project.load.some((l) => l.section === row.id));
     if (used && !confirm(`${row.name || row.id} is used in the teaching load. Delete anyway?`)) return;
-    update((p) => ({ ...p, [table]: p[table].filter((_, i) => i !== index) }));
+    update((p) => ({ ...p, [table]: p[table].filter((_, i) => i !== index) }), `Deleted a row from ${spec.label.toLowerCase()}`);
   };
 
   const onAdd = () => {
-    update((p) => ({ ...p, [table]: [...p[table], newRow(table, p, role)] }));
+    update((p) => ({ ...p, [table]: [...p[table], newRow(table, p, role)] }), `Added a row to ${spec.label.toLowerCase()}`);
     setSearch('');
   };
 
@@ -120,7 +120,7 @@ function TableTab({ table, project, role, update, notify }) {
     }
     const replacing = project[table].length - keep.length;
     if (replacing > 0 && !confirm(`Replace ${replacing} existing ${spec.label.toLowerCase()} row(s) with ${incoming.length} row(s) from ${file.name}?`)) return;
-    update((p) => ({ ...p, [table]: [...keep, ...incoming] }));
+    update((p) => ({ ...p, [table]: [...keep, ...incoming] }), `Imported ${file.name}`);
     const parts = [`Imported ${incoming.length} row(s) into ${spec.label}.`];
     if (skipped) parts.push(`${skipped} row(s) for other departments were skipped.`);
     if (problems.length) parts.push(`${problems.length} warning(s): ${problems[0]}`);

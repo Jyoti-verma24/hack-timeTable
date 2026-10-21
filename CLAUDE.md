@@ -46,6 +46,8 @@ src/
     csv.js             CSV parse/write + TABLES spec (one column list drives templates, import, export and editable tables)
     project.js         empty/normalize/save/load project, rowDept/canEdit permissions, renameRefs
     slots.js           "Fri 5-8; Mon 1" <-> [{ day, period }]
+    fixedSlots.js      group one-per-day fixed slots into "Library, P5, Mon-Fri" rows and back
+    history.js         undo/redo steps (last 50; a quick burst of the same change is one step)
   samples/index.js     demo colleges (engineering, arts & commerce)
   ui/                  one file per screen + shared components
   App.jsx, main.jsx, styles.css
@@ -112,6 +114,7 @@ Two-phase hybrid (classic university course timetabling):
 - Plain JS modules, 2-space indent, single quotes. Match the surrounding code's comment density: a short comment explaining *why*, not *what*.
 - Colours and spacing are CSS custom properties on `:root` in `src/styles.css`. Add a named token rather than a raw colour in a component.
 - Keep the print styles (A4 landscape, one timetable per page) and the `prefers-reduced-motion` rule working when changing CSS.
+- Every change to the project goes through `update(fn, label)` from `App.jsx`, so it can be undone. Give it a short past-tense label people will read on the Undo button ("Moved DBMS (CSE-3A)", "Imported rooms.csv"). Return the same object from `fn` when nothing changed, so no empty undo step is recorded.
 - `localStorage` only for autosave convenience, always wrapped in try/catch; the project JSON file is the real save.
 - Every engine change needs a test in `tests/`. The stress test (random colleges → 0 clashes) must keep passing.
 

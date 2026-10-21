@@ -71,7 +71,7 @@ export default function TimetableScreen({ project, role, errorCount, stale, upda
       notify(`Not moved: ${clashes[0].message}`);
       return;
     }
-    update((p) => ({ ...p, timetable: { ...p.timetable, placements: moved, manualMoves: (p.timetable.manualMoves || 0) + 1 } }));
+    update((p) => ({ ...p, timetable: { ...p.timetable, placements: moved, manualMoves: (p.timetable.manualMoves || 0) + 1 } }), `Moved ${selectedInfo.row.subject} (${selectedInfo.row.section})`);
     notify(`Moved ${selectedInfo.row.subject} (${selectedInfo.row.section}) to ${day} P${start + 1}, room ${opt.room}, and locked it there. Still 0 clashes.`);
     setSelected(null);
     setHover(null);
@@ -79,7 +79,7 @@ export default function TimetableScreen({ project, role, errorCount, stale, upda
 
   const lockedCount = tt ? tt.placements.filter((p) => p.locked).length : 0;
   const setLock = (uids, locked) => {
-    update((p) => ({ ...p, timetable: { ...p.timetable, placements: setLocked(p.timetable.placements, uids, locked) } }));
+    update((p) => ({ ...p, timetable: { ...p.timetable, placements: setLocked(p.timetable.placements, uids, locked) } }), `${locked ? 'Locked' : 'Unlocked'} ${uids.length} class${uids.length > 1 ? 'es' : ''}`);
   };
   // Classes in the timetable on screen that this role may lock or unlock.
   const inView = (tt?.placements || []).filter((pl) => {
@@ -114,7 +114,7 @@ export default function TimetableScreen({ project, role, errorCount, stale, upda
           fingerprint: dataFingerprint(p),
           generatedAt: new Date().toISOString(),
         },
-      }));
+      }), 'Generated the timetable');
       setBusy(false);
       const parts = [`Generated in ${(res.ms / 1000).toFixed(1)} s.`];
       if (res.keptLocked) parts.push(`Kept ${res.keptLocked} locked class(es) in place.`);

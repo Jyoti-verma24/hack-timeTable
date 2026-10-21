@@ -10,8 +10,12 @@ const ALL_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 export default function CollegeSettings({ project, role, update }) {
   const s = project.settings;
   const editable = role === 'coordinator';
-  const set = (patch) => update((p) => ({ ...p, settings: { ...p.settings, ...patch } }));
-  const setAll = (fn) => update((p) => ({ ...p, settings: fn(p.settings) }));
+  const set = (patch, label = 'Changed college settings') => update((p) => ({ ...p, settings: { ...p.settings, ...patch } }), label);
+  const setAll = (fn, label = 'Changed college timings') =>
+    update((p) => {
+      const next = fn(p.settings);
+      return next === p.settings ? p : { ...p, settings: next };
+    }, label);
 
   const setPeriodCount = (n) => {
     n = Math.max(1, Math.min(14, n || 1));
@@ -23,16 +27,16 @@ export default function CollegeSettings({ project, role, update }) {
       periods.push({ label: `P${periods.length + 1}`, start: hhmm(start), end: hhmm(start + len) });
     }
     // A break needs a period on both sides of it.
-    set({ periods, breaks: (s.breaks || []).filter((b) => b.after < n) });
+    set({ periods, breaks: (s.breaks || []).filter((b) => b.after < n) }, 'Changed the number of periods');
   };
 
   const toggleDay = (d) => {
     const days = s.days.includes(d) ? s.days.filter((x) => x !== d) : ALL_DAYS.filter((x) => x === d || s.days.includes(x));
-    set({ days });
+    set({ days }, 'Changed working days');
   };
 
   const groups = groupFixedSlots(s.fixedSlots, s.days);
-  const setGroups = (next) => set({ fixedSlots: ungroupFixedSlots(next) });
+  const setGroups = (next) => set({ fixedSlots: ungroupFixedSlots(next) }, 'Changed fixed slots');
   const setGroup = (gi, patch) => setGroups(groups.map((g, j) => (j === gi ? { ...g, ...patch } : g)));
   // A fixed slot needs at least one day; untick the last day and nothing changes.
   const toggleGroupDay = (gi, day) => {
@@ -50,21 +54,21 @@ export default function CollegeSettings({ project, role, update }) {
     }
   };
 
-  const setPeriodTime = (i, key, value) => set({ periods: s.periods.map((q, j) => (j === i ? { ...q, [key]: value } : q)) });
+  const setPeriodTime = (i, key, value) => set({ periods: s.periods.map((q, j) => (j === i ? { ...q, [key]: value } : q)) }, 'Changed period times');
 
   // Changing a break's times moves everything after it, so nothing overlaps.
   const setBreak = (i, patch) =>
     setAll((st) => {
       const next = { ...st, breaks: st.breaks.map((b, j) => (j === i ? { ...b, ...patch } : b)) };
       return 'start' in patch || 'end' in patch ? reflow(next, { kind: 'break', index: i }) : next;
-    });
+    }, 'Changed a break');
 
   const moveBreak = (i, delta) =>
     setAll((st) => {
       const after = st.breaks[i].after + delta;
       if (after < 1 || after >= st.periods.length) return st;
       return reflow({ ...st, breaks: st.breaks.map((b, j) => (j === i ? { ...b, after } : b)) });
-    });
+    }, 'Moved a break');
 
   const addBreak = () =>
     setAll((st) => {
@@ -73,7 +77,7 @@ export default function CollegeSettings({ project, role, update }) {
       const start = st.periods[after - 1].end;
       const brk = { after, label: 'Tea break', start, end: hhmm((toMin(start) ?? 0) + 10), blocksLabs: false };
       return reflow({ ...st, breaks: [...(st.breaks || []), brk] }, { kind: 'break', index: (st.breaks || []).length });
-    });
+    }, 'Added a break');
 
   const removeBreak = (i) =>
     setAll((st) => {
@@ -81,7 +85,7 @@ export default function CollegeSettings({ project, role, update }) {
       const next = { ...st, breaks: st.breaks.filter((_, j) => j !== i) };
       const after = st.breaks[i].after;
       return reflow(next, { kind: 'period', index: after - 1 });
-    });
+    }, 'Removed a break');
 
   return (
     <fieldset disabled={!editable} style={{ border: 0, padding: 0, margin: 0 }}>
@@ -97,7 +101,7 @@ export default function CollegeSettings({ project, role, update }) {
       <div className="card card-pad stack">
         <div className="form-grid">
           <label htmlFor="cname">College name</label>
-          <input id="cname" defaultValue={s.name} key={s.name} onBlur={(e) => e.target.value.trim() && set({ name: e.target.value.trim() })} style={{ maxWidth: 420 }} />
+          <input id="cname" defaultValue={s.name} key={s.name} onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== s.name && set({ name: e.target.value.trim() }, 'Renamed the college')} style={{ maxWidth: 420 }} />
 
           <label>Working days</label>
           <div className="day-checks">
@@ -122,7 +126,7 @@ export default function CollegeSettings({ project, role, update }) {
                     const halfDays = { ...(s.halfDays || {}) };
                     if (e.target.value) halfDays[d] = Number(e.target.value);
                     else delete halfDays[d];
-                    set({ halfDays });
+                    set({ halfDays }, 'Changed shorter days');
                   }}
                 >
                   <option value="">Full day</option>
@@ -144,7 +148,7 @@ export default function CollegeSettings({ project, role, update }) {
             a break unless you tick "labs may continue".
           </p>
         </div>
-        <QuickSetup settings={s} onFill={(dayStart, periodMinutes) => setAll((st) => reflow(st, null, { dayStart, periodMinutes }))} />
+        <QuickSetup settings={s} onFill={(dayStart, periodMinutes) => setAll((st) => reflow(st, null, { dayStart, periodMinutes }), 'Filled timings')} />
         <div className="table-wrap" style={{ maxWidth: 760 }}>
           <table className="data timings">
             <thead>

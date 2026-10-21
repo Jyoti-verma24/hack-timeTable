@@ -7,7 +7,7 @@ export default function Overview({ project, role, issues, stale, update, go, goD
   const submitted = departments.filter((d) => status[d.id] === 'submitted').length;
   const isCoord = role === 'coordinator';
 
-  const setStatus = (dept, value) => update((p) => ({ ...p, status: { ...p.status, [dept]: value } }));
+  const setStatus = (dept, value) => update((p) => ({ ...p, status: { ...p.status, [dept]: value } }), `Marked ${dept} as ${value}`);
 
   let next;
   if (!departments.length) next = { text: 'Start by setting the college timings, then add your departments.', action: () => goData('settings'), label: 'Set up college' };
