@@ -45,7 +45,24 @@ export function softCost(project, placements) {
     }
   }
 
-  return { gaps, repeats, longRuns, total: gaps * 2 + repeats * 3 + longRuns * 4 };
+  // Times a section has to change classroom between two back-to-back theory classes.
+  let roomChanges = 0;
+  const bySectionDay = new Map();
+  for (const pl of placements) {
+    const row = loadById.get(pl.loadId);
+    if (!row || row.type === 'lab') continue;
+    const k = `${row.section}|${pl.day}`;
+    if (!bySectionDay.has(k)) bySectionDay.set(k, []);
+    bySectionDay.get(k).push(pl);
+  }
+  for (const list of bySectionDay.values()) {
+    list.sort((a, b) => a.start - b.start);
+    for (let i = 1; i < list.length; i++) {
+      if (list[i].start === list[i - 1].start + list[i - 1].len && list[i].room !== list[i - 1].room) roomChanges++;
+    }
+  }
+
+  return { gaps, repeats, longRuns, roomChanges, total: gaps * 2 + repeats * 3 + longRuns * 4 + roomChanges };
 }
 
 function addTo(map, key, value) {

@@ -77,6 +77,7 @@ function solveOnce(project, rng) {
   const tDay = new Map(); // "<teacher>|<day>" -> periods taught
   const sDay = new Map(); // "<section>|<day>" -> periods
   const subjDay = new Map(); // "<loadId>|<day>" -> units of that subject that day
+  const secRoom = new Map(); // "<section>|<room>" -> periods spent there
   const placed = new Map(); // uid -> { day, start, room }
 
   const inc = (m, k, v) => m.set(k, (m.get(k) || 0) + v);
@@ -126,6 +127,14 @@ function solveOnce(project, rng) {
     pen += 0.15 * start; // mild preference for mornings
     if (room.dept === 'shared') pen += 1; // leave contested shared rooms for those who need them
     pen += (room.capacity - u.section.students) / 200;
+    // Students shouldn't change rooms every period: prefer the section's most-used room of this type.
+    let home = null;
+    let homeUses = 0;
+    for (const r of u.rooms) {
+      const n = secRoom.get(`${u.section.id}|${r.id}`) || 0;
+      if (n > homeUses) [home, homeUses] = [r.id, n];
+    }
+    if (home && home !== room.id) pen += 3;
     return pen + rng() * 0.6;
   };
 
@@ -138,6 +147,7 @@ function solveOnce(project, rng) {
     inc(tDay, `${u.teacher.id}|${day}`, u.len);
     inc(sDay, `${u.section.id}|${day}`, u.len);
     inc(subjDay, `${u.loadId}|${day}`, 1);
+    inc(secRoom, `${u.section.id}|${room.id}`, u.len);
     placed.set(u.uid, { day, start, room: room.id });
   };
 
@@ -152,6 +162,7 @@ function solveOnce(project, rng) {
     inc(tDay, `${u.teacher.id}|${day}`, -u.len);
     inc(sDay, `${u.section.id}|${day}`, -u.len);
     inc(subjDay, `${u.loadId}|${day}`, -1);
+    inc(secRoom, `${u.section.id}|${room}`, -u.len);
     placed.delete(uid);
   };
 

@@ -3,6 +3,7 @@ import { generate } from '../src/engine/generate.js';
 import { checkTimetable } from '../src/engine/check.js';
 import { validate } from '../src/engine/validate.js';
 import { explainUnplaced } from '../src/engine/explain.js';
+import { softCost } from '../src/engine/score.js';
 import { SAMPLES } from '../src/samples/index.js';
 import { randomCollege } from './randomCollege.js';
 import { parseSlots, formatSlots } from '../src/io/slots.js';
@@ -19,6 +20,15 @@ describe('sample colleges', () => {
       const { clashes, missing } = checkTimetable(project, result.placements);
       expect(clashes).toEqual([]);
       expect(missing).toEqual([]);
+    });
+
+    it(`${sample.key}: good quality (few gaps, students keep their room, no long teacher runs)`, () => {
+      const project = sample.build();
+      const q = softCost(project, generate(project).placements);
+      expect(q.gaps).toBeLessThanOrEqual(5);
+      expect(q.roomChanges).toBeLessThanOrEqual(3);
+      expect(q.longRuns).toBe(0);
+      expect(q.repeats).toBe(0);
     });
   }
 
