@@ -8,7 +8,7 @@ export function checkTimetable(project, placements) {
   const sections = new Map(project.sections.map((s) => [s.id, s]));
   const rooms = new Map(project.rooms.map((r) => [r.id, r]));
   const P = settings.periods.length;
-  const lunch = settings.lunchAfter || 0;
+  const walls = (settings.breaks || []).filter((b) => b.blocksLabs !== false);
   const fixed = new Map((settings.fixedSlots || []).map((f) => [`${f.day}|${f.period}`, f.label]));
 
   const clashes = [];
@@ -34,7 +34,9 @@ export function checkTimetable(project, placements) {
     const dayLength = settings.halfDays?.[pl.day] ? Math.min(settings.halfDays[pl.day], P) : P;
     if (!settings.days.includes(pl.day)) add('time', `${what} is on ${pl.day}, which is not a working day.`);
     if (pl.start < 0 || pl.start + pl.len > dayLength) add('time', `${what} runs past the end of ${pl.day}.`);
-    if (lunch > 0 && pl.start < lunch && pl.start + pl.len > lunch) add('time', `${what} runs through the lunch break on ${pl.day}.`);
+    for (const w of walls) {
+      if (pl.start < w.after && pl.start + pl.len > w.after) add('time', `${what} runs through the ${w.label || 'break'} on ${pl.day}.`);
+    }
 
     if (!room) add('room', `${what} is in room "${pl.room}", which does not exist.`);
     else {

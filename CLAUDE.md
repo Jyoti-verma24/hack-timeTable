@@ -35,6 +35,7 @@ npm run build      # production build into dist/
 src/
   engine/              pure logic, fully unit-tested
     model.js           shared helpers: periodsOn, blockFits, expandUnits, eligibleRooms, seeded RNG
+    time.js            clock times, the day's timeline of periods and breaks, reflow
     generate.js        solver (see Algorithm)
     check.js           independent clash checker
     validate.js        data checks before generating -> [{ level, area, dept, message }]
@@ -55,7 +56,7 @@ tests/
 ## Data model (one college = one project, saved as one JSON file)
 
 ```
-settings     { name, days: ["Mon",...], periods: [{label,start,end}], lunchAfter, halfDays: {Sat: 4}, fixedSlots: [{day, period, label}] }
+settings     { name, days: ["Mon",...], periods: [{label,start,end}], breaks: [{after, label, start, end, blocksLabs}], halfDays: {Sat: 4}, fixedSlots: [{day, period, label}] }
 departments  [{ id (code), name, hod }]
 rooms        [{ id (name), type, capacity, dept: <dept id> | "shared" }]
 teachers     [{ id, name, dept, maxPerWeek, maxPerDay, unavailable: [{day, period}] }]
@@ -66,14 +67,15 @@ timetable    { placements: [{ uid, loadId, day, start, len, room }], unplaced, m
 ```
 
 - **Periods are 0-based in data, 1-based in anything a person reads or types** (UI, CSV, messages: "P3", "Fri 5-8").
-- `lunchAfter = 4` means lunch comes after the 4th period; no block may straddle it.
+- A break sits between periods: `after: 4` means it comes after the 4th period. Breaks have their own start/end times. A block may not run through a break unless `blocksLabs: false` (e.g. a short tea break). Lunch always blocks.
+- Times are "HH:MM" strings; `src/engine/time.js` has `toMin`/`hhmm`, `timeline` (periods and breaks in order) and `reflow` (re-time everything after an entry, keeping lengths). Old projects with `lunchAfter` are migrated in `normalizeProject`.
 - References use IDs. Renaming an ID in the UI goes through `renameRefs` so nothing breaks.
 - A placement stores only what/when/where; teacher and section come from its `load` row.
 - `timetable.fingerprint` (from `dataFingerprint`) detects that data changed after generating, which shows a "regenerate" banner.
 
 ## Rules
 
-**Hard (never broken):** no teacher, room or section double-booked; room type matches; room capacity ≥ students; room is shared or owned by the section's department; teacher unavailability and daily maximum respected; college-wide fixed slots kept free; blocks stay inside the day and never cross lunch; half-days respected.
+**Hard (never broken):** no teacher, room or section double-booked; room type matches; room capacity ≥ students; room is shared or owned by the section's department; teacher unavailability and daily maximum respected; college-wide fixed slots kept free; blocks stay inside the day and never run through lunch (or any break not marked `blocksLabs: false`); half-days respected.
 
 **Soft (scored, lower is better):** subject spread across the week, balanced days, compact student days (few gaps), no more than 3 periods in a row for a teacher, mornings slightly preferred, own-department rooms before shared ones, smallest room that fits.
 

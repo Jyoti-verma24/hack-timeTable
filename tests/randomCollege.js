@@ -8,7 +8,9 @@ export function randomCollege(seed) {
   const nPeriods = int(6, 8);
   const lunchAfter = int(3, 4);
   const periods = Array.from({ length: nPeriods }, (_, i) => ({ label: `P${i + 1}`, start: '', end: '' }));
-  const settings = { name: `Random ${seed}`, days, periods, lunchAfter, halfDays: {}, fixedSlots: [] };
+  const breaks = [{ after: lunchAfter, label: 'Lunch', start: '', end: '', blocksLabs: true }];
+  if (rng() < 0.5) breaks.push({ after: 2, label: 'Tea break', start: '', end: '', blocksLabs: false });
+  const settings = { name: `Random ${seed}`, days, periods, breaks, halfDays: {}, fixedSlots: [] };
   if (days.includes('Sat') && rng() < 0.5) settings.halfDays.Sat = lunchAfter;
   if (rng() < 0.5) settings.fixedSlots.push({ day: days[int(0, days.length - 1)], period: nPeriods - 1, label: 'Fixed' });
 

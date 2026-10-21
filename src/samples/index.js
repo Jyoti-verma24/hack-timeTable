@@ -2,21 +2,25 @@
 // a real college replaces them with its own data.
 
 import { parseSlots } from '../io/slots.js';
+import { toMin, hhmm } from '../engine/time.js';
 
 const WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-function periods(start, minutes, count, lunchAfter, lunchMinutes) {
-  const out = [];
+// Lays out a day: equal periods from `start`, with breaks [{ after, minutes, label, blocksLabs }].
+function day(start, minutes, count, breaks) {
+  const periods = [];
+  const timed = [];
   let t = toMin(start);
   for (let i = 0; i < count; i++) {
-    if (i === lunchAfter) t += lunchMinutes;
-    out.push({ label: `P${i + 1}`, start: fromMin(t), end: fromMin(t + minutes) });
+    periods.push({ label: `P${i + 1}`, start: hhmm(t), end: hhmm(t + minutes) });
     t += minutes;
+    for (const b of breaks.filter((x) => x.after === i + 1)) {
+      timed.push({ after: b.after, label: b.label, start: hhmm(t), end: hhmm(t + b.minutes), blocksLabs: b.blocksLabs });
+      t += b.minutes;
+    }
   }
-  return out;
+  return { periods, breaks: timed };
 }
-const toMin = (hhmm) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3));
-const fromMin = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 
 function teacher(id, name, dept, maxPerWeek, maxPerDay, unavailable = '') {
   return { id, name, dept, maxPerWeek, maxPerDay, unavailable: parseSlots(unavailable, WEEK).slots };
@@ -43,8 +47,10 @@ function engineering() {
     settings: {
       name: 'Sample Engineering College, Ludhiana',
       days: WEEK,
-      periods: periods('09:00', 50, 8, 4, 40),
-      lunchAfter: 4,
+      ...day('09:00', 50, 8, [
+        { after: 2, minutes: 10, label: 'Tea break', blocksLabs: false },
+        { after: 4, minutes: 40, label: 'Lunch', blocksLabs: true },
+      ]),
       halfDays: { Sat: 4 },
       fixedSlots: [{ day: 'Fri', period: 7, label: 'Sports / Clubs' }],
     },
@@ -159,8 +165,7 @@ function artsCommerce() {
     settings: {
       name: 'Sample Arts & Commerce College',
       days,
-      periods: periods('09:30', 45, 6, 3, 30),
-      lunchAfter: 3,
+      ...day('09:30', 45, 6, [{ after: 3, minutes: 30, label: 'Lunch', blocksLabs: true }]),
       halfDays: { Sat: 3 },
       fixedSlots: [{ day: 'Mon', period: 0, label: 'Assembly' }],
     },

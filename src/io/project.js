@@ -1,5 +1,7 @@
 // Creating, loading, saving and editing a whole college project.
 
+import { hhmm } from '../engine/time.js';
+
 const STORAGE_KEY = 'timetable-optimizer.project';
 
 export function emptyProject() {
@@ -11,7 +13,7 @@ export function emptyProject() {
         const start = 9 * 60 + i * 50 + (i >= 4 ? 40 : 0);
         return { label: `P${i + 1}`, start: hhmm(start), end: hhmm(start + 50) };
       }),
-      lunchAfter: 4,
+      breaks: [{ after: 4, label: 'Lunch', start: '12:20', end: '13:00', blocksLabs: true }],
       halfDays: {},
       fixedSlots: [],
     },
@@ -25,13 +27,19 @@ export function emptyProject() {
   };
 }
 
-export function hhmm(m) {
-  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
-}
-
 export function normalizeProject(raw) {
   const base = emptyProject();
   const p = { ...base, ...raw, settings: { ...base.settings, ...(raw?.settings || {}) } };
+  // Older projects stored only "lunch after period N"; turn that into a timed break.
+  if (raw?.settings && !Array.isArray(raw.settings.breaks)) {
+    const after = Number(raw.settings.lunchAfter) || 0;
+    const { periods } = p.settings;
+    p.settings.breaks =
+      after > 0 && after < periods.length
+        ? [{ after, label: 'Lunch', start: periods[after - 1].end, end: periods[after].start, blocksLabs: true }]
+        : [];
+  }
+  delete p.settings.lunchAfter;
   for (const key of ['departments', 'rooms', 'teachers', 'sections', 'load', 'fixedSlots']) {
     if (key === 'fixedSlots') p.settings.fixedSlots = Array.isArray(p.settings.fixedSlots) ? p.settings.fixedSlots : [];
     else if (!Array.isArray(p[key])) p[key] = [];

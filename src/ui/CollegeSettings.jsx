@@ -1,31 +1,66 @@
-// College-wide week structure: name, days, periods and timings, lunch, half-days, fixed slots.
+// College-wide week structure: name, days, periods and breaks with their timings,
+// half-days and fixed slots.
 
-import { hhmm } from '../io/project.js';
+import { hhmm, toMin, timeline, reflow } from '../engine/time.js';
 
 const ALL_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const toMin = (t) => (t ? Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5)) : 0);
 
 export default function CollegeSettings({ project, role, update }) {
   const s = project.settings;
   const editable = role === 'coordinator';
   const set = (patch) => update((p) => ({ ...p, settings: { ...p.settings, ...patch } }));
+  const setAll = (fn) => update((p) => ({ ...p, settings: fn(p.settings) }));
 
   const setPeriodCount = (n) => {
     n = Math.max(1, Math.min(14, n || 1));
     const periods = s.periods.slice(0, n);
     while (periods.length < n) {
       const last = periods[periods.length - 1];
-      const start = last ? toMin(last.end) : 9 * 60;
-      const len = last ? toMin(last.end) - toMin(last.start) || 50 : 50;
+      const start = last ? toMin(last.end) ?? 9 * 60 : 9 * 60;
+      const len = last ? (toMin(last.end) ?? 0) - (toMin(last.start) ?? 0) || 50 : 50;
       periods.push({ label: `P${periods.length + 1}`, start: hhmm(start), end: hhmm(start + len) });
     }
-    set({ periods, lunchAfter: Math.min(s.lunchAfter, n - 1) });
+    // A break needs a period on both sides of it.
+    set({ periods, breaks: (s.breaks || []).filter((b) => b.after < n) });
   };
 
   const toggleDay = (d) => {
     const days = s.days.includes(d) ? s.days.filter((x) => x !== d) : ALL_DAYS.filter((x) => x === d || s.days.includes(x));
     set({ days });
   };
+
+  const setPeriodTime = (i, key, value) => set({ periods: s.periods.map((q, j) => (j === i ? { ...q, [key]: value } : q)) });
+
+  // Changing a break's times moves everything after it, so nothing overlaps.
+  const setBreak = (i, patch) =>
+    setAll((st) => {
+      const next = { ...st, breaks: st.breaks.map((b, j) => (j === i ? { ...b, ...patch } : b)) };
+      return 'start' in patch || 'end' in patch ? reflow(next, { kind: 'break', index: i }) : next;
+    });
+
+  const moveBreak = (i, delta) =>
+    setAll((st) => {
+      const after = st.breaks[i].after + delta;
+      if (after < 1 || after >= st.periods.length) return st;
+      return reflow({ ...st, breaks: st.breaks.map((b, j) => (j === i ? { ...b, after } : b)) });
+    });
+
+  const addBreak = () =>
+    setAll((st) => {
+      const after = Math.min(2, st.periods.length - 1);
+      if (after < 1) return st;
+      const start = st.periods[after - 1].end;
+      const brk = { after, label: 'Tea break', start, end: hhmm((toMin(start) ?? 0) + 10), blocksLabs: false };
+      return reflow({ ...st, breaks: [...(st.breaks || []), brk] }, { kind: 'break', index: (st.breaks || []).length });
+    });
+
+  const removeBreak = (i) =>
+    setAll((st) => {
+      // Close the gap the break leaves behind.
+      const next = { ...st, breaks: st.breaks.filter((_, j) => j !== i) };
+      const after = st.breaks[i].after;
+      return reflow(next, { kind: 'period', index: after - 1 });
+    });
 
   return (
     <fieldset disabled={!editable} style={{ border: 0, padding: 0, margin: 0 }}>
@@ -50,14 +85,6 @@ export default function CollegeSettings({ project, role, update }) {
 
           <label htmlFor="np">Periods per day</label>
           <input id="np" type="number" min={1} max={14} value={s.periods.length} onChange={(e) => setPeriodCount(Number(e.target.value))} style={{ width: 90 }} />
-
-          <label htmlFor="lunch">Lunch break</label>
-          <select id="lunch" value={s.lunchAfter} onChange={(e) => set({ lunchAfter: Number(e.target.value) })} style={{ maxWidth: 260 }}>
-            <option value={0}>No lunch break</option>
-            {s.periods.slice(0, -1).map((p, i) => (
-              <option key={i} value={i + 1}>After period {i + 1} ({p.end})</option>
-            ))}
-          </select>
 
           <label>Shorter days</label>
           <div className="row">
@@ -85,30 +112,71 @@ export default function CollegeSettings({ project, role, update }) {
       </div>
 
       <div className="card card-pad stack" style={{ marginTop: 16 }}>
-        <h3>Period timings</h3>
-        <div className="table-wrap" style={{ maxWidth: 520 }}>
-          <table className="data">
+        <div>
+          <h3>Period and break timings</h3>
+          <p className="muted small">
+            Breaks sit between periods. Change a break's times and the periods after it move to match. No class may run through
+            a break unless you tick "labs may continue".
+          </p>
+        </div>
+        <div className="table-wrap" style={{ maxWidth: 760 }}>
+          <table className="data timings">
             <thead>
-              <tr><th>Period</th><th>Starts</th><th>Ends</th></tr>
+              <tr><th style={{ minWidth: 150 }}>Period / break</th><th>Starts</th><th>Ends</th><th>Length</th><th /></tr>
             </thead>
             <tbody>
-              {s.periods.map((p, i) => (
-                <tr key={i}>
-                  <td><span className="readonly-cell">P{i + 1}{s.lunchAfter === i + 1 ? ' · lunch after' : ''}</span></td>
-                  {['start', 'end'].map((k) => (
-                    <td key={k}>
+              {timeline(s).map(({ kind, index, item }) => {
+                const len = (toMin(item.end) ?? 0) - (toMin(item.start) ?? 0);
+                const lenText = toMin(item.end) != null && toMin(item.start) != null ? `${len} min` : '—';
+                if (kind === 'period') {
+                  return (
+                    <tr key={`p${index}`}>
+                      <td><span className="readonly-cell"><b>P{index + 1}</b></span></td>
+                      {['start', 'end'].map((k) => (
+                        <td key={k}>
+                          <input type="time" value={item[k]} aria-label={`Period ${index + 1} ${k}`} onChange={(e) => setPeriodTime(index, k, e.target.value)} />
+                        </td>
+                      ))}
+                      <td><span className="readonly-cell muted">{lenText}</span></td>
+                      <td />
+                    </tr>
+                  );
+                }
+                return (
+                  <tr key={`b${index}`} className="break-row">
+                    <td>
                       <input
-                        type="time"
-                        value={p[k]}
-                        aria-label={`Period ${i + 1} ${k}`}
-                        onChange={(e) => set({ periods: s.periods.map((q, j) => (j === i ? { ...q, [k]: e.target.value } : q)) })}
+                        defaultValue={item.label}
+                        key={`${index}-${item.label}`}
+                        aria-label="Break name"
+                        onBlur={(e) => e.target.value.trim() && setBreak(index, { label: e.target.value.trim() })}
                       />
                     </td>
-                  ))}
-                </tr>
-              ))}
+                    {['start', 'end'].map((k) => (
+                      <td key={k}>
+                        <input type="time" value={item[k]} aria-label={`${item.label} ${k}`} onChange={(e) => setBreak(index, { [k]: e.target.value })} />
+                      </td>
+                    ))}
+                    <td><span className="readonly-cell muted">{lenText}</span></td>
+                    <td>
+                      <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
+                        <label className="small row" style={{ gap: 4, whiteSpace: 'nowrap' }} title="Allow a lab to continue through this break">
+                          <input type="checkbox" checked={item.blocksLabs === false} onChange={(e) => setBreak(index, { blocksLabs: !e.target.checked })} />
+                          labs may continue
+                        </label>
+                        <button className="btn ghost sm" aria-label="Move break earlier" title="Move earlier" onClick={() => moveBreak(index, -1)}>↑</button>
+                        <button className="btn ghost sm" aria-label="Move break later" title="Move later" onClick={() => moveBreak(index, 1)}>↓</button>
+                        <button className="btn ghost sm danger" aria-label="Remove break" title="Remove break" onClick={() => removeBreak(index)}>✕</button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
+        </div>
+        <div>
+          <button className="btn sm" onClick={addBreak} disabled={s.periods.length < 2}>+ Add break</button>
         </div>
       </div>
 

@@ -166,6 +166,9 @@ table.data tr.locked td input, table.data tr.locked td select { pointer-events: 
 table.data .readonly-cell { padding: 6px 7px; display: block; }
 .empty-state { padding: 36px; text-align: center; color: var(--muted); }
 
+table.data.timings tr.break-row td { background: var(--lunch); }
+table.data.timings tr.break-row td input:not([type='checkbox']) { font-weight: 600; }
+
 .form-grid { display: grid; grid-template-columns: 180px 1fr; gap: 14px 18px; align-items: center; }
 .form-grid > label { font-weight: 500; }
 .day-checks { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -198,16 +201,15 @@ table.tt { border-collapse: separate; border-spacing: 3px; width: 100%; min-widt
 table.tt th { font-size: 12px; color: var(--muted); font-weight: 600; padding: 6px 4px; text-align: center; }
 table.tt th .time { display: block; font-weight: 400; font-size: 11px; }
 table.tt th.day { width: 56px; text-align: left; color: var(--ink); font-size: 13px; }
-table.tt th.lunch-h { width: 34px; }
+table.tt th.break-h { width: 46px; padding: 6px 2px; font-size: 10.5px; line-height: 1.25; }
+table.tt th.break-h .break-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+table.tt th.break-h .time { font-size: 10px; }
 table.tt td { height: 74px; border-radius: 7px; padding: 6px 7px; vertical-align: top; font-size: 12px; overflow: hidden; }
 table.tt td.empty { background: var(--surface-2); border: 1px dashed var(--line); }
 table.tt td.off { background: repeating-linear-gradient(45deg, #f1f3f6, #f1f3f6 6px, #e9edf2 6px, #e9edf2 12px); }
 table.tt td.fixed { background: var(--fixed); color: var(--fixed-ink); font-weight: 600; text-align: center; vertical-align: middle; }
 table.tt td.unavail { background: repeating-linear-gradient(45deg, #fff4f4, #fff4f4 6px, #fde5e5 6px, #fde5e5 12px); color: var(--err); text-align: center; vertical-align: middle; font-size: 11px; }
-table.tt td.lunch {
-  background: var(--lunch); color: var(--muted); font-weight: 600; letter-spacing: 0.2em; text-align: center;
-  vertical-align: middle; writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; padding: 0;
-}
+table.tt td.brk { background: var(--lunch); padding: 0; }
 table.tt td.class { border-left: 4px solid; }
 .cell-subject { font-weight: 650; font-size: 12.5px; line-height: 1.25; }
 .cell-line { color: #3d4757; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

@@ -220,7 +220,7 @@ function PrintHead({ project, view, label }) {
 function Legend() {
   return (
     <div className="legend no-print">
-      <span><i style={{ background: 'var(--lunch)' }} /> Lunch</span>
+      <span><i style={{ background: 'var(--lunch)' }} /> Lunch / break</span>
       <span><i style={{ background: 'var(--fixed)' }} /> College-wide fixed slot</span>
       <span><i style={{ background: 'repeating-linear-gradient(45deg,#f1f3f6,#f1f3f6 3px,#e2e6ec 3px,#e2e6ec 6px)' }} /> Short day, no classes</span>
       <span><i style={{ background: 'repeating-linear-gradient(45deg,#fff4f4,#fff4f4 3px,#fde5e5 3px,#fde5e5 6px)' }} /> Teacher unavailable</span>

@@ -71,7 +71,7 @@ describe('checker', () => {
     const lab = project.load.find((l) => l.type === 'lab' && l.block === 2);
     const bad = [{ uid: 'x', loadId: lab.id, day: 'Mon', start: 3, len: 2, room: 'CR-103' }];
     const { clashes } = checkTimetable(project, bad);
-    expect(clashes.some((c) => c.message.includes('lunch'))).toBe(true);
+    expect(clashes.some((c) => /runs through the lunch/i.test(c.message))).toBe(true);
     expect(clashes.some((c) => c.message.includes('needs a computer-lab'))).toBe(true);
   });
 });

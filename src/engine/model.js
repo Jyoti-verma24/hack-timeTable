@@ -1,6 +1,8 @@
 // Shared helpers that describe the shape of a college's week and its teaching load.
 // Days are names ("Mon"); periods are 0-based indexes into settings.periods.
 
+import { breaksOf } from './time.js';
+
 export const ROOM_TYPES = ['classroom', 'computer-lab', 'electronics-lab', 'mech-lab', 'physics-lab', 'hall'];
 
 export function periodsOn(settings, day) {
@@ -8,12 +10,17 @@ export function periodsOn(settings, day) {
   return half ? Math.min(half, settings.periods.length) : settings.periods.length;
 }
 
-// A block may not run past the day's last period or straddle the lunch break.
+// Breaks a multi-period class may not run through. Lunch always blocks; a short
+// break can be marked as one that labs may continue through.
+function blockingBreaks(settings) {
+  return breaksOf(settings).filter((b) => b.blocksLabs !== false).map((b) => b.after);
+}
+
+// A block may not run past the day's last period or through a blocking break.
 export function blockFits(settings, day, start, len) {
   const end = start + len - 1;
   if (start < 0 || end >= periodsOn(settings, day)) return false;
-  const lunch = settings.lunchAfter || 0;
-  return !(lunch > 0 && start < lunch && end >= lunch);
+  return !blockingBreaks(settings).some((after) => start < after && end >= after);
 }
 
 export function isFixedSlot(settings, day, period) {
@@ -22,11 +29,14 @@ export function isFixedSlot(settings, day, period) {
 
 export function longestBlock(settings) {
   let best = 0;
+  const cuts = blockingBreaks(settings);
   for (const day of settings.days) {
     const n = periodsOn(settings, day);
-    const lunch = settings.lunchAfter || 0;
-    const parts = lunch > 0 && lunch < n ? [lunch, n - lunch] : [n];
-    best = Math.max(best, ...parts);
+    let prev = 0;
+    for (const cut of [...cuts.filter((c) => c < n), n]) {
+      best = Math.max(best, cut - prev);
+      prev = cut;
+    }
   }
   return best;
 }
