@@ -3,6 +3,7 @@
 // Each issue: { level: 'error' | 'warning', area, dept, message }.
 
 import { periodsOn, longestBlock, blockLength, eligibleRooms } from './model.js';
+import { timeline, toMin } from './time.js';
 
 const AREA_LABEL = {
   departments: 'Departments',
@@ -21,6 +22,7 @@ export function validate(project) {
 
   if (!settings.days.length) add('error', 'settings', null, 'No working days are selected.');
   if (!settings.periods.length) add('error', 'settings', null, 'No periods are defined for the day.');
+  for (const [level, message] of timingIssues(settings)) add(level, 'settings', null, message);
 
   const deptIds = new Set(departments.map((d) => d.id));
   const teacherById = new Map(teachers.map((t) => [t.id, t]));
@@ -142,4 +144,53 @@ export function validate(project) {
   }
 
   return issues;
+}
+
+// Clock-time problems in the day's periods and breaks, and fixed slots that don't fit the week.
+function timingIssues(settings) {
+  const out = [];
+  const line = timeline(settings).map((x) => ({
+    name: x.kind === 'period' ? `P${x.index + 1}` : x.item.label || 'A break',
+    kind: x.kind,
+    start: toMin(x.item.start),
+    end: toMin(x.item.end),
+    item: x.item,
+  }));
+
+  for (const x of line) {
+    if (x.start == null || x.end == null) out.push(['error', `${x.name} has no start or end time.`]);
+    else if (x.end === x.start) out.push(['error', `${x.name} has no time: it starts and ends at ${x.item.start}.`]);
+    else if (x.end < x.start) out.push(['error', `${x.name} ends at ${x.item.end}, before it starts at ${x.item.start}.`]);
+  }
+
+  for (let i = 1; i < line.length; i++) {
+    const prev = line[i - 1];
+    const cur = line[i];
+    if (prev.end == null || cur.start == null) continue;
+    if (cur.start < prev.end) out.push(['error', `${cur.name} starts at ${cur.item.start}, before ${prev.name} ends at ${prev.item.end}.`]);
+    else if (cur.start - prev.end >= 5) {
+      out.push(['warning', `There are ${cur.start - prev.end} minutes between ${prev.name} and ${cur.name} that aren't a period or a break. Add a break, or fix the times.`]);
+    }
+  }
+
+  const lengths = line.filter((x) => x.kind === 'period' && x.end > x.start).map((x) => x.end - x.start).sort((a, b) => a - b);
+  const typical = lengths[Math.floor(lengths.length / 2)];
+  for (const x of line) {
+    if (x.kind === 'period' && x.end > x.start && typical && x.end - x.start < typical * 0.75) {
+      out.push(['warning', `${x.name} is ${x.end - x.start} minutes, but most periods are ${typical}. If it's really a break, add it as a break instead.`]);
+    }
+  }
+
+  if (settings.periods.length >= 5 && !(settings.breaks || []).some((b) => b.blocksLabs !== false)) {
+    out.push(['warning', 'There is no lunch break, so labs may run straight through lunchtime. Add a break if your college has one.']);
+  }
+
+  for (const f of settings.fixedSlots || []) {
+    const name = f.label ? `The fixed slot "${f.label}"` : 'A fixed slot';
+    if (!settings.days.includes(f.day)) out.push(['error', `${name} is on ${f.day}, which is not a working day.`]);
+    else if (f.period >= periodsOn(settings, f.day)) {
+      out.push(['error', `${name} is on ${f.day} P${f.period + 1}, but ${f.day} has only ${periodsOn(settings, f.day)} periods.`]);
+    }
+  }
+  return out;
 }
