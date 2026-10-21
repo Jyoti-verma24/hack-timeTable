@@ -169,6 +169,9 @@ table.data tr.locked td input, table.data tr.locked td select { pointer-events: 
 table.data .readonly-cell { padding: 6px 7px; display: block; }
 .empty-state { padding: 36px; text-align: center; color: var(--muted); }
 
+.fixed-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.fixed-row > input { width: 190px; }
+.day-check.sm { padding: 4px 8px; font-size: 13px; }
 .fixed-swatch { background: var(--fixed); color: var(--fixed-ink); font-weight: 600; padding: 0 5px; border-radius: 4px; }
 .empty-hint { padding: 12px 14px; border: 1px dashed var(--line-strong); border-radius: 8px; color: var(--muted); background: var(--surface-2); }
 

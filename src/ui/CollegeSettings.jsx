@@ -3,6 +3,7 @@
 
 import { useState } from 'react';
 import { hhmm, toMin, timeline, reflow } from '../engine/time.js';
+import { groupFixedSlots, ungroupFixedSlots } from '../io/fixedSlots.js';
 
 const ALL_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -28,6 +29,25 @@ export default function CollegeSettings({ project, role, update }) {
   const toggleDay = (d) => {
     const days = s.days.includes(d) ? s.days.filter((x) => x !== d) : ALL_DAYS.filter((x) => x === d || s.days.includes(x));
     set({ days });
+  };
+
+  const groups = groupFixedSlots(s.fixedSlots, s.days);
+  const setGroups = (next) => set({ fixedSlots: ungroupFixedSlots(next) });
+  const setGroup = (gi, patch) => setGroups(groups.map((g, j) => (j === gi ? { ...g, ...patch } : g)));
+  // A fixed slot needs at least one day; untick the last day and nothing changes.
+  const toggleGroupDay = (gi, day) => {
+    const { days } = groups[gi];
+    if (days.includes(day) && days.length === 1) return;
+    setGroup(gi, { days: days.includes(day) ? days.filter((d) => d !== day) : [...days, day] });
+  };
+
+  // Start a new fixed slot on the first day and period nothing else uses yet.
+  const addGroup = () => {
+    const taken = new Set((s.fixedSlots || []).map((f) => `${f.day}|${f.period}`));
+    for (let period = 0; period < s.periods.length; period++) {
+      const day = s.days.find((d) => !taken.has(`${d}|${period}`));
+      if (day) return setGroups([...groups, { period, label: '', days: [day] }]);
+    }
   };
 
   const setPeriodTime = (i, key, value) => set({ periods: s.periods.map((q, j) => (j === i ? { ...q, [key]: value } : q)) });
@@ -197,29 +217,35 @@ export default function CollegeSettings({ project, role, update }) {
         </div>
         {!(s.fixedSlots || []).length && (
           <div className="empty-hint">
-            No fixed slots yet. Click <b>+ Add fixed slot</b>, then choose the day, the period and a name, for example{' '}
-            <i>Mon · P1 · Assembly</i>. Skip this if your college has none.
+            No fixed slots yet. Click <b>+ Add fixed slot</b>, then give it a name, a period and the days it happens, for example{' '}
+            <i>Library · P5 · Mon–Fri</i>. Skip this if your college has none.
           </div>
         )}
-        {(s.fixedSlots || []).map((f, i) => (
-          <div key={i} className="row">
-            <select value={f.day} onChange={(e) => set({ fixedSlots: s.fixedSlots.map((x, j) => (j === i ? { ...x, day: e.target.value } : x)) })}>
-              {s.days.map((d) => <option key={d}>{d}</option>)}
-            </select>
-            <select value={f.period} onChange={(e) => set({ fixedSlots: s.fixedSlots.map((x, j) => (j === i ? { ...x, period: Number(e.target.value) } : x)) })}>
+        {groups.map((g, gi) => (
+          <div key={gi} className="fixed-row">
+            <input
+              defaultValue={g.label}
+              key={`${gi}-${g.label}`}
+              placeholder="Name, e.g. Assembly"
+              aria-label="Fixed slot name"
+              onBlur={(e) => setGroup(gi, { label: e.target.value.trim() })}
+            />
+            <select value={g.period} aria-label="Period" onChange={(e) => setGroup(gi, { period: Number(e.target.value) })}>
               {s.periods.map((_, p) => <option key={p} value={p}>P{p + 1}</option>)}
             </select>
-            <input
-              defaultValue={f.label}
-              key={`${i}-${f.label}`}
-              placeholder="Label, e.g. Assembly"
-              onBlur={(e) => set({ fixedSlots: s.fixedSlots.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) })}
-            />
-            <button className="btn sm ghost danger" onClick={() => set({ fixedSlots: s.fixedSlots.filter((_, j) => j !== i) })}>Remove</button>
+            <div className="day-checks" role="group" aria-label="Days">
+              {s.days.map((d) => (
+                <label key={d} className={`day-check sm ${g.days.includes(d) ? 'on' : ''}`}>
+                  <input type="checkbox" checked={g.days.includes(d)} onChange={() => toggleGroupDay(gi, d)} /> {d}
+                </label>
+              ))}
+              <button className="btn ghost sm" onClick={() => setGroup(gi, { days: [...s.days] })} title="Every working day">All days</button>
+            </div>
+            <button className="btn sm ghost danger" onClick={() => setGroups(groups.filter((_, j) => j !== gi))}>Remove</button>
           </div>
         ))}
         <div>
-          <button className="btn sm" onClick={() => set({ fixedSlots: [...(s.fixedSlots || []), { day: s.days[0], period: 0, label: 'Assembly' }] })}>
+          <button className="btn sm" onClick={addGroup} disabled={!s.days.length}>
             + Add fixed slot
           </button>
         </div>
