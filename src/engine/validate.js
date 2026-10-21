@@ -63,6 +63,7 @@ export function validate(project) {
   const teacherHours = new Map();
   const sectionHours = new Map();
   const roomTypeHours = new Map();
+  const borrowed = new Map();
   for (const row of load) {
     const section = sectionById.get(row.section);
     const teacher = teacherById.get(row.teacher);
@@ -97,8 +98,14 @@ export function validate(project) {
       roomTypeHours.set(row.roomType, (roomTypeHours.get(row.roomType) || 0) + hours);
     }
     if (teacher && section && teacher.dept !== section.dept) {
-      add('warning', 'load', dept, `${teacher.name} (${teacher.dept}) teaches ${what}, outside their department. Make sure the ${teacher.dept} HOD agrees.`);
+      const k = `${teacher.id}|${section.dept}`;
+      if (!borrowed.has(k)) borrowed.set(k, { teacher, dept: section.dept, sections: new Set() });
+      borrowed.get(k).sections.add(section.id);
     }
+  }
+  // One note per teacher lent to another department, not one per class.
+  for (const { teacher, dept, sections: secs } of borrowed.values()) {
+    add('warning', 'load', dept, `${teacher.name} (${teacher.dept}) teaches in ${dept}: ${[...secs].join(', ')}. Make sure the ${teacher.dept} HOD agrees.`);
   }
 
   for (const t of teachers) {
