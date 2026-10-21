@@ -121,9 +121,9 @@ export default function Grid({ project, placements, view, id, edit }) {
                     colSpan={span}
                     className={`class${movable ? ' movable' : ''}${isSelected ? ' selected' : ''}${tgt.className || ''}`}
                     style={{ background: bg, borderLeftColor: accent }}
-                    title={tgt.title || (movable ? 'Click or drag to move this class' : undefined)}
-                    draggable={movable || undefined}
-                    onDragStart={movable ? (e) => { e.dataTransfer.effectAllowed = 'move'; edit.onSelect(hit.pl.uid, true); } : undefined}
+                    title={tgt.title || (movable ? (hit.pl.locked ? 'Locked. Click it to see the Unlock button.' : 'Click or drag to move this class') : undefined)}
+                    draggable={(movable && !hit.pl.locked) || undefined}
+                    onDragStart={movable && !hit.pl.locked ? (e) => { e.dataTransfer.effectAllowed = 'move'; edit.onSelect(hit.pl.uid, true); } : undefined}
                     onDragOver={tgt.onDragOver}
                     onDrop={tgt.onDrop}
                     onMouseEnter={tgt.onMouseEnter}
@@ -134,6 +134,7 @@ export default function Grid({ project, placements, view, id, edit }) {
                     <div className="cell-subject">
                       {hit.row.subject}
                       {hit.row.type === 'lab' && <span className="cell-lab">LAB</span>}
+                      {hit.pl.locked && <span className="cell-lock no-print" title="Locked: stays here when you regenerate" aria-label="Locked">🔒</span>}
                     </div>
                     {lines.map((l, i) => (
                       <div key={i} className="cell-line" title={l}>{l}</div>

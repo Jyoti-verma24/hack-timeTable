@@ -4,7 +4,7 @@ import { checkTimetable } from '../engine/check.js';
 import { explainUnplaced } from '../engine/explain.js';
 import { softCost } from '../engine/score.js';
 import { dataFingerprint } from '../engine/model.js';
-import { moveOptions, applyMove } from '../engine/moves.js';
+import { moveOptions, applyMove, setLocked } from '../engine/moves.js';
 import Grid from './Grid.jsx';
 
 const VIEWS = [
@@ -72,10 +72,21 @@ export default function TimetableScreen({ project, role, errorCount, stale, upda
       return;
     }
     update((p) => ({ ...p, timetable: { ...p.timetable, placements: moved, manualMoves: (p.timetable.manualMoves || 0) + 1 } }));
-    notify(`Moved ${selectedInfo.row.subject} (${selectedInfo.row.section}) to ${day} P${start + 1}, room ${opt.room}. Still 0 clashes.`);
+    notify(`Moved ${selectedInfo.row.subject} (${selectedInfo.row.section}) to ${day} P${start + 1}, room ${opt.room}, and locked it there. Still 0 clashes.`);
     setSelected(null);
     setHover(null);
   };
+
+  const lockedCount = tt ? tt.placements.filter((p) => p.locked).length : 0;
+  const setLock = (uids, locked) => {
+    update((p) => ({ ...p, timetable: { ...p.timetable, placements: setLocked(p.timetable.placements, uids, locked) } }));
+  };
+  // Classes in the timetable on screen that this role may lock or unlock.
+  const inView = (tt?.placements || []).filter((pl) => {
+    const row = project.load.find((l) => l.id === pl.loadId);
+    if (!row || !canMove(pl, row)) return false;
+    return (view === 'section' && row.section === current) || (view === 'teacher' && row.teacher === current) || (view === 'room' && pl.room === current);
+  });
 
   useEffect(() => {
     if (!printAll) return;
@@ -86,6 +97,7 @@ export default function TimetableScreen({ project, role, errorCount, stale, upda
   }, [printAll]);
 
   const run = (seed) => {
+    if (lockedCount && !confirm(`Regenerate builds a completely new timetable. Your ${lockedCount} locked class(es) will be replaced too. Continue?`)) return;
     setBusy(true);
     // Let the button repaint before the solver blocks the main thread.
     setTimeout(() => {
@@ -159,6 +171,7 @@ export default function TimetableScreen({ project, role, errorCount, stale, upda
             <span className="badge-big neutral">Student gaps: {quality.gaps}</span>
             <span className="badge-big neutral">Teacher runs over 3: {quality.longRuns}</span>
             <span className="badge-big neutral" title="Back-to-back classes where students must walk to another room">Room changes: {quality.roomChanges}</span>
+            {lockedCount > 0 && <span className="badge-big neutral" title="Locked classes stay where they are">🔒 {lockedCount} locked</span>}
             <span className="muted small">Generated in {(tt.ms / 1000).toFixed(1)} s · {new Date(tt.generatedAt).toLocaleString()}</span>
           </div>
 
@@ -212,16 +225,38 @@ export default function TimetableScreen({ project, role, errorCount, stale, upda
                 </div>
                 {editing && (
                   <div className="edit-bar no-print" role="status">
-                    {selectedInfo ? (
+                    {selectedInfo?.pl.locked ? (
+                      <div className="edit-line">
+                        <span>🔒 <b>{selectedInfo.row.subject}</b> ({selectedInfo.row.section}) is locked, so it stays where it is. Unlock it to move it.</span>
+                        <button className="btn sm" onClick={() => setLock([selected], false)}>🔓 Unlock</button>
+                      </div>
+                    ) : selectedInfo ? (
                       <>
-                        <b>Moving {selectedInfo.row.subject}</b> ({selectedInfo.row.section}, {selectedInfo.pl.len} period{selectedInfo.pl.len > 1 ? 's' : ''}).{' '}
-                        {selectedInfo.free
-                          ? `Click or drop on a green slot (${selectedInfo.free} free). Red slots show why on hover. Esc to cancel.`
-                          : 'There is no free slot for it this week. Move another class first.'}
+                        <div className="edit-line">
+                          <span>
+                            <b>Moving {selectedInfo.row.subject}</b> ({selectedInfo.row.section}, {selectedInfo.pl.len} period{selectedInfo.pl.len > 1 ? 's' : ''}).{' '}
+                            {selectedInfo.free
+                              ? `Click or drop on a green slot (${selectedInfo.free} free). Red slots show why on hover. Esc to cancel.`
+                              : 'There is no free slot for it this week. Move another class first.'}
+                          </span>
+                          <button className="btn sm" onClick={() => { setLock([selected], true); setSelected(null); setHover(null); }}>🔒 Lock where it is</button>
+                        </div>
                         <div className="edit-hover">{hover || ' '}</div>
                       </>
                     ) : (
-                      <>Click a class (or drag it) to see where it can go.{!isCoord && ' You can move your own department\'s classes.'}</>
+                      <div className="edit-line">
+                        <span>Click a class (or drag it) to move or lock it.{!isCoord && ' You can change your own department\'s classes.'}</span>
+                        {inView.length > 0 && (
+                          <span className="row" style={{ gap: 6 }}>
+                            <button className="btn sm" disabled={inView.every((p) => p.locked)} onClick={() => setLock(inView.map((p) => p.uid), true)}>
+                              🔒 Lock all {inView.length} here
+                            </button>
+                            <button className="btn sm" disabled={!inView.some((p) => p.locked)} onClick={() => setLock(inView.map((p) => p.uid), false)}>
+                              🔓 Unlock all
+                            </button>
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}

@@ -7,7 +7,7 @@ import { blockFits, eligibleRooms } from './model.js';
 export function moveOptions(project, placements, uid) {
   const { settings } = project;
   const moving = placements.find((p) => p.uid === uid);
-  if (!moving) return new Map();
+  if (!moving || moving.locked) return new Map();
   const loads = new Map(project.load.map((l) => [l.id, l]));
   const row = loads.get(moving.loadId);
   const teacher = project.teachers.find((t) => t.id === row?.teacher);
@@ -62,6 +62,16 @@ export function moveOptions(project, placements, uid) {
   return options;
 }
 
+// A class moved by hand is locked, so a later regenerate keeps the fix.
 export function applyMove(placements, uid, day, start, room) {
-  return placements.map((p) => (p.uid === uid ? { ...p, day, start, room } : p));
+  return placements.map((p) => (p.uid === uid ? { ...p, day, start, room, locked: true } : p));
+}
+
+export function setLocked(placements, uids, locked) {
+  const ids = new Set(uids);
+  return placements.map((p) => {
+    if (!ids.has(p.uid)) return p;
+    const { locked: _, ...rest } = p;
+    return locked ? { ...rest, locked: true } : rest;
+  });
 }
