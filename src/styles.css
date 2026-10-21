@@ -166,6 +166,10 @@ table.data tr.locked td input, table.data tr.locked td select { pointer-events: 
 table.data .readonly-cell { padding: 6px 7px; display: block; }
 .empty-state { padding: 36px; text-align: center; color: var(--muted); }
 
+.quick-setup {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px;
+  background: var(--primary-soft); border-radius: 8px; max-width: 760px;
+}
 table.data.timings tr.break-row td { background: var(--lunch); }
 table.data.timings tr.break-row td input:not([type='checkbox']) { font-weight: 600; }
 

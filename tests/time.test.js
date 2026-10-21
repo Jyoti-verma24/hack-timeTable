@@ -29,6 +29,13 @@ describe('breaks and timings', () => {
     expect(next.periods[1]).toMatchObject({ start: '10:10', end: '11:10' });
   });
 
+  it('quick setup fills every period from a start time and one length, keeping breaks', () => {
+    const settings = { periods: hourly(5), breaks: [{ after: 2, label: 'Lunch', start: '11:00', end: '11:30', blocksLabs: true }] };
+    const next = reflow(settings, null, { dayStart: '09:30', periodMinutes: 55 });
+    expect(next.periods.map((p) => `${p.start}-${p.end}`)).toEqual(['09:30-10:25', '10:25-11:20', '11:50-12:45', '12:45-13:40', '13:40-14:35']);
+    expect(next.breaks[0]).toMatchObject({ start: '11:20', end: '11:50' });
+  });
+
   it('labs never cross lunch but may run through a tea break that allows it', () => {
     const settings = {
       days: ['Mon'], periods: hourly(6), halfDays: {},

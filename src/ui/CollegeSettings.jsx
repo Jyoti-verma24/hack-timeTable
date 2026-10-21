@@ -1,6 +1,7 @@
 // College-wide week structure: name, days, periods and breaks with their timings,
 // half-days and fixed slots.
 
+import { useState } from 'react';
 import { hhmm, toMin, timeline, reflow } from '../engine/time.js';
 
 const ALL_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -119,6 +120,7 @@ export default function CollegeSettings({ project, role, update }) {
             a break unless you tick "labs may continue".
           </p>
         </div>
+        <QuickSetup settings={s} onFill={(dayStart, periodMinutes) => setAll((st) => reflow(st, null, { dayStart, periodMinutes }))} />
         <div className="table-wrap" style={{ maxWidth: 760 }}>
           <table className="data timings">
             <thead>
@@ -209,5 +211,33 @@ export default function CollegeSettings({ project, role, update }) {
         </div>
       </div>
     </fieldset>
+  );
+}
+
+// Fill every period from a start time and one period length; breaks keep their length.
+function QuickSetup({ settings, onFill }) {
+  const lengths = settings.periods.map((p) => (toMin(p.end) ?? 0) - (toMin(p.start) ?? 0)).filter((m) => m > 0);
+  const usual = lengths.sort((a, b) => lengths.filter((x) => x === b).length - lengths.filter((x) => x === a).length)[0] || 50;
+  const [dayStart, setDayStart] = useState(settings.periods[0]?.start || '09:00');
+  const [minutes, setMinutes] = useState(usual);
+  const preview = reflow(settings, null, { dayStart, periodMinutes: minutes });
+  const ends = preview.periods[preview.periods.length - 1]?.end;
+  const valid = toMin(dayStart) != null && minutes >= 10 && minutes <= 240;
+
+  return (
+    <div className="quick-setup">
+      <b>Quick setup</b>
+      <label className="row small" style={{ gap: 6 }}>
+        Day starts at
+        <input type="time" value={dayStart} onChange={(e) => setDayStart(e.target.value)} aria-label="Day starts at" />
+      </label>
+      <label className="row small" style={{ gap: 6 }}>
+        each period
+        <input type="number" min={10} max={240} value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} style={{ width: 72 }} aria-label="Period length in minutes" />
+        min
+      </label>
+      <button className="btn sm primary" disabled={!valid} onClick={() => onFill(dayStart, minutes)}>Fill timings</button>
+      {valid && <span className="muted small">{settings.periods.length} periods, day ends at {ends}</span>}
+    </div>
   );
 }
