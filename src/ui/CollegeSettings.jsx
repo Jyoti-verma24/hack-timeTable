@@ -66,8 +66,12 @@ export default function CollegeSettings({ project, role, update }) {
   return (
     <fieldset disabled={!editable} style={{ border: 0, padding: 0, margin: 0 }}>
       {!editable && (
-        <div className="banner info" style={{ marginBottom: 14 }}>
-          Only the coordinator can change college-wide timings. They apply to every department.
+        <div className="banner lock" role="note" style={{ marginBottom: 14 }}>
+          <span className="lock-icon" aria-hidden>🔒</span>
+          <div className="grow">
+            <b>Set by the coordinator.</b> College timings and fixed slots apply to every department, so only the coordinator can
+            change them. You can see them here; to change something, ask the coordinator (or switch "Acting as" to Coordinator).
+          </div>
         </div>
       )}
       <div className="card card-pad stack">
